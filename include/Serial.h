@@ -32,10 +32,11 @@ namespace serial {
 
 		bool isOpen() const;
 		void close();
-		std::future<std::vector<uint8_t>> receive();
-		std::future<std::vector<uint8_t>> receive(size_t const num_bytes);
-		std::future<std::vector<uint8_t>> receive(size_t const num_bytes, unsigned int timeout);
+		std::future<std::vector<uint8_t>> receiveAsync(size_t const num_bytes);
+		std::future<std::vector<uint8_t>> receiveAsync(size_t const num_bytes, unsigned int timeout);
 
+		void transmit(std::vector<uint8_t> const& data);
+		std::size_t transmitAsync(const std::vector<uint8_t>& v);
 
 
 
@@ -49,7 +50,6 @@ namespace serial {
 		void asyncRead();
 		void asyncReadHandler(boost::system::error_code const& error, size_t bytes_transferred);
 		int16_t readByte();
-		std::vector<uint8_t> readBuffer();
 		std::vector<uint8_t> readBuffer(size_t len);
 		std::vector<uint8_t> readBufferTimeout(size_t len);
 
@@ -64,15 +64,14 @@ namespace serial {
 
 
 		mutable std::mutex errMtx;
-		int error_value;
+		int error_value{};
 		void setError(const int error_value);
 		int getError() const;
 
-		unsigned int timeoutVal = 5000;
+		unsigned int timeoutVal = 60000;
 
 
-		std::size_t transmit(uint8_t c);
-		std::size_t transmit(const std::vector<uint8_t>& v);
+
 		mutable std::mutex writeMtx;    
 		std::condition_variable writeCv; 
 		bool writeLocked = false;        
@@ -82,7 +81,7 @@ namespace serial {
 	};
 
 
-	Serial::Serial() : io_context(), serial_port(io_context), serial_work(io_context), asyncReadThread(nullptr) {};
+	Serial::Serial() : io_context(), serial_port(io_context), serial_work(io_context), asyncReadThread(nullptr), buf{} {};
 
 
 	Serial::~Serial() {
@@ -188,32 +187,6 @@ namespace serial {
 		return res;
 	}
 
-	std::vector<uint8_t> Serial::readBuffer()
-	{
-		auto start = std::chrono::system_clock::now();
-		bool timeout = false;
-		std::vector<uint8_t> res;
-
-		while (!timeout)
-		{
-			auto now = std::chrono::system_clock::now();
-			auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
-			if (elapsed.count() >= timeoutVal)
-			{
-				timeout = true;
-			}
-			else
-			{
-				const int16_t b = readByte();
-				if (b > -1)
-				{
-					res.push_back((uint8_t)b);
-				}
-			}
-		}
-		return res;
-	}
-
 
 	std::vector<uint8_t> Serial::readBuffer(size_t len)
 	{
@@ -258,30 +231,26 @@ namespace serial {
 	}
 
 
-	std::future<std::vector<uint8_t>> Serial::receive()
-	{
-		return std::async(std::launch::deferred, boost::bind(&Serial::readBuffer, this));
-	}
 
-	std::future<std::vector<uint8_t>> Serial::receive(size_t const num_bytes)
+	std::future<std::vector<uint8_t>> Serial::receiveAsync(size_t const num_bytes)
 	{
 		return std::async(std::launch::deferred, boost::bind(&Serial::readBuffer, this, num_bytes));
 	}
 
-	std::future<std::vector<uint8_t>> Serial::receive(size_t const num_bytes, unsigned int timeout)
+	std::future<std::vector<uint8_t>> Serial::receiveAsync(size_t const num_bytes, unsigned int timeout)
 	{
 		timeoutVal = timeout;
 		return std::async(std::launch::deferred, boost::bind(&Serial::readBufferTimeout, this, num_bytes));
 	}
 
 
-	std::size_t Serial::transmit(uint8_t c)
+	void Serial::transmit(std::vector<uint8_t> const& data)
 	{
-		std::vector<uint8_t> v({ c });
-		return transmit(v);
+		boost::asio::write(serial_port, boost::asio::buffer(data));
 	}
 
-	std::size_t Serial::transmit(const std::vector<uint8_t>& v)
+
+	std::size_t Serial::transmitAsync(const std::vector<uint8_t>& v)
 	{
 		std::unique_lock<std::mutex> lk(writeMtx);
 		if (writeLocked)

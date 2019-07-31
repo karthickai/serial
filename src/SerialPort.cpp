@@ -4,7 +4,7 @@
 
 int main()
 {
-    std::cout << "Hello World!\n";
+    std::cout << "Serial Port Library!\n";
 
 	serial::Serial s;
 	std::cout << s.isOpen() << std::endl;
@@ -13,7 +13,7 @@ int main()
 
 	auto start = std::chrono::system_clock::now();
 
-	auto future = s.receive(5, 5000);
+	auto future = s.receiveAsync(5, 5000);
 	auto const v = future.get();
 
 	auto end = std::chrono::system_clock::now();
@@ -25,9 +25,9 @@ int main()
 		for (auto val : v) {
 			std::cout << std::hex << val << " ";
 		}
+		std::cout << std::endl;
+		s.transmit(v);
 	}
 
 	s.close();
-	int c {};
-	std::cin >> c;
 }

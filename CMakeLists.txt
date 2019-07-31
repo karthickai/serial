@@ -37,7 +37,7 @@ set (Boost_USE_MULTITHREADED ON)
 unset (Boost_INCLUDE_DIR CACHE)
 unset (Boost_LIBRARY_DIRS CACHE)
 
-set (BOOST_ROOT "C:\\tools\\vcpkg\\installed\\x86-windows`") 
+set (BOOST_ROOT "C:\\tools\\vcpkg\\installed\\x86-windows") 
 set (BOOST_INCLUDEDIR "C:\\tools\\vcpkg\\installed\\x86-windows\\include")
 
 find_package(Boost "1.70.0" COMPONENTS ${BOOST_MANDATORY_COMPONENTS}  REQUIRED)
